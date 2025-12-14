@@ -60,6 +60,19 @@ This directory contains the complete investigation and migration planning for po
 
 **Status:** Template ready - needs completion once API documentation is reviewed.
 
+### 5. [MCP_SERVER_INTEGRATION.md](./MCP_SERVER_INTEGRATION.md) 🆕
+**MCP Server Integration Guide**
+
+**Contents:**
+- What is MCP and how it can help
+- Using MCP servers to access blocked APIs
+- Custom financial data MCP server implementation
+- Simple documentation fetcher alternative
+- Integration with migration strategy
+- Benefits for long-term provider abstraction
+
+**Key Benefit:** MCP servers can access Massive.com from unrestricted environments and provide data to AI assistants in a controlled manner.
+
 ## 🎯 Quick Summary
 
 ### Current State
@@ -99,6 +112,12 @@ This directory contains the complete investigation and migration planning for po
    - Why switch from Financial Datasets to Massive?
    - What specific problem needs solving?
    - Timeline and urgency?
+
+3. **Consider MCP Server Approach** 🆕
+   - Use MCP (Model Context Protocol) server to access Massive.com API
+   - See [MCP_SERVER_INTEGRATION.md](./MCP_SERVER_INTEGRATION.md) for details
+   - Can run MCP server in unrestricted environment
+   - Benefits: Automated testing, provider abstraction, easier migration
 
 **OPTION B: Alternative Providers (If Massive Not Suitable)**
 If Massive.com is not viable, consider:
