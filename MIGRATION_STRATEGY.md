@@ -111,6 +111,7 @@ Create `src/data/providers/financial_datasets.py`:
 
 ```python
 import os
+import logging
 import requests
 import time
 from typing import Optional
@@ -123,6 +124,8 @@ from src.data.models import (
     CompanyNews, CompanyNewsResponse,
     CompanyFactsResponse,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class FinancialDatasetsProvider(FinancialDataProvider):
@@ -158,7 +161,7 @@ class FinancialDatasetsProvider(FinancialDataProvider):
             
             if response.status_code == 429 and attempt < max_retries:
                 delay = 60 + (30 * attempt)
-                print(f"Rate limited. Waiting {delay}s...")
+                logger.warning(f"Rate limited. Waiting {delay}s before retry...")
                 time.sleep(delay)
                 continue
             
@@ -175,7 +178,8 @@ class FinancialDatasetsProvider(FinancialDataProvider):
         try:
             price_response = PriceResponse(**response.json())
             return price_response.prices
-        except:
+        except Exception as e:
+            logger.error(f"Error parsing price response for {ticker}: {e}")
             return []
     
     # ... implement other methods similarly
@@ -188,6 +192,7 @@ Create `src/data/providers/massive_com.py`:
 
 ```python
 import os
+import logging
 import requests
 from typing import Optional
 from src.data.providers.base import FinancialDataProvider
@@ -198,6 +203,8 @@ from src.data.models import (
     InsiderTrade,
     CompanyNews,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class MassiveComProvider(FinancialDataProvider):
@@ -233,6 +240,7 @@ class MassiveComProvider(FinancialDataProvider):
         response = requests.get(url, headers=headers, params=params)
         
         if response.status_code != 200:
+            logger.error(f"Failed to fetch prices for {ticker}: HTTP {response.status_code}")
             return []
         
         # TODO: Transform Massive.com response to our Price model
@@ -254,8 +262,8 @@ class MassiveComProvider(FinancialDataProvider):
                 prices.append(price)
             
             return prices
-        except Exception as e:
-            print(f"Error parsing Massive.com price data: {e}")
+        except (KeyError, ValueError, TypeError) as e:
+            logger.error(f"Error parsing Massive.com price data for {ticker}: {e}")
             return []
     
     def get_financial_metrics(
@@ -536,8 +544,11 @@ Run this to validate Massive.com API when it becomes available.
 """
 
 import os
+import logging
 from datetime import datetime, timedelta
 from src.data.providers import get_provider
+
+logger = logging.getLogger(__name__)
 
 def compare_prices(ticker: str, days: int = 30):
     """Compare price data from both providers."""
@@ -548,12 +559,20 @@ def compare_prices(ticker: str, days: int = 30):
     print("=" * 70)
     
     # Get data from Financial Datasets
-    fd_provider = get_provider("financial_datasets")
-    fd_prices = fd_provider.get_prices(ticker, start_date, end_date)
+    try:
+        fd_provider = get_provider("financial_datasets")
+        fd_prices = fd_provider.get_prices(ticker, start_date, end_date)
+    except Exception as e:
+        logger.error(f"Error fetching from Financial Datasets: {e}")
+        fd_prices = []
     
     # Get data from Massive.com
-    mc_provider = get_provider("massive_com")
-    mc_prices = mc_provider.get_prices(ticker, start_date, end_date)
+    try:
+        mc_provider = get_provider("massive_com")
+        mc_prices = mc_provider.get_prices(ticker, start_date, end_date)
+    except Exception as e:
+        logger.error(f"Error fetching from Massive.com: {e}")
+        mc_prices = []
     
     print(f"Financial Datasets: {len(fd_prices)} data points")
     print(f"Massive.com:        {len(mc_prices)} data points")
@@ -579,13 +598,14 @@ def compare_prices(ticker: str, days: int = 30):
 
 def main():
     """Run comparison tests."""
+    logging.basicConfig(level=logging.INFO)
     tickers = ["AAPL", "MSFT", "GOOGL"]
     
     for ticker in tickers:
         try:
             compare_prices(ticker)
         except Exception as e:
-            print(f"❌ Error testing {ticker}: {e}")
+            logger.error(f"Error testing {ticker}: {e}")
     
     print("\n" + "=" * 70)
     print("Comparison complete!")
@@ -613,6 +633,10 @@ def get_provider_with_fallback(
     This allows testing new providers while maintaining reliability.
     If primary provider fails, automatically falls back to the secondary.
     """
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
     class FallbackProvider(FinancialDataProvider):
         def __init__(self):
             self.primary = get_provider(primary_provider, api_key)
@@ -622,7 +646,7 @@ def get_provider_with_fallback(
             try:
                 return self.primary.get_prices(ticker, start_date, end_date)
             except Exception as e:
-                print(f"Primary provider failed: {e}. Using fallback.")
+                logger.warning(f"Primary provider failed: {e}. Using fallback.")
                 return self.fallback.get_prices(ticker, start_date, end_date)
         
         # Implement other methods similarly...
